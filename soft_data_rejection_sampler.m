@@ -9,6 +9,7 @@
 % Then compared to an MPS Estimation that takes non-co-locational soft data
 % into account.
 %
+% TEST commit.
 rng(1); % Set fixed random seed;
 
 %% LOAD DATA
