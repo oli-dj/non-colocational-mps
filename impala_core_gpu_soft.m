@@ -27,7 +27,7 @@ function [ SG, tauG, stats] = impala_core_gpu_soft(SG, SDG, list, path,...
 %  tauG:                local size of data template used
 %  stats.               Statistics struct
 %
-% Oli D. Johannsson, oli@johannsson.dk (2018)
+% Oli D. Johannsson, oli@johannsson.dk (2021)
 
 
 %% Get options
