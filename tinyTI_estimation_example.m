@@ -63,8 +63,8 @@ filename_prefix = 'sim';
 
 % PATH
 % 0: raster, 1:random, 2: random preferential, 3: dist
-pathtype = 1;
-I_fac = 4; % Only applies to preferential path
+pathtype = 2;
+I_fac = 2; % Only applies to preferential path
 
 % Data template
 template_length = 4;
@@ -269,18 +269,18 @@ xlabel('x','interpreter','latex');
 ylabel('y','interpreter','latex');
 
 
-subplot(3,3,2)
-imagesc(SG_tot);
-%title(sprintf('$$n_{soft} = %i$$',ncsds(j)),'interpreter','latex');
-title('Simulation, hard and soft data.','interpreter','latex');
-axis image
-axis ij
-colorbar;
-colormap(cmap);
-caxis([0,1]);
-xlabel('x','interpreter','latex');
-ylabel('y','interpreter','latex');
-%
+% subplot(3,3,2)
+% imagesc(SG_tot);
+% %title(sprintf('$$n_{soft} = %i$$',ncsds(j)),'interpreter','latex');
+% title('Simulation, hard and soft data.','interpreter','latex');
+% axis image
+% axis ij
+% colorbar;
+% colormap(cmap);
+% caxis([0,1]);
+% xlabel('x','interpreter','latex');
+% ylabel('y','interpreter','latex');
+% %
 subplot(3,3,3)
 imagesc(SG_rejection_sampler_tot);
 title(sprintf('Simulation, Rejection Sampler\n Accepted realizations: %i',num_accept),'interpreter','latex');
