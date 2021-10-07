@@ -1,8 +1,8 @@
 function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
-    tau, rand_pre, cat, options)
+    tau, cat, options)
 %ESTIMATOR_CORE_GPU_SOFT IMPALA style MPS-algorithm on GPU with soft data
-%   Estimation implementation of IMPALA-esque MPS algorithm that searches 
-%   the list using CUDA kernels on a GPU. Supports trimming and 
+%   Estimation implementation of IMPALA-esque MPS algorithm that searches
+%   the list using CUDA kernels on a GPU. Supports trimming and
 %   non-colocational soft data, as well as colocational.
 %
 % Inputs:
@@ -11,15 +11,12 @@ function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
 %  list:                IMPALA list (c and d vectors)
 %  path:                pre-calculated path (random or otherwise)
 %  tau:                 data template
-%  rand_pre:            pre-calculated random numbers(not needed for est.)
+%  rand_pre:            pre-calculated random numbers (not needed for est.)
 %  cat:                 categories
 %  options.threshold:   minimum count in list, else use marginal cpdf.
 %         .print:       boolean; 1 shows progress, 0 no print to screen
 %         .num_soft_nc  Number nof non-colocated soft data to consider
 %                       (default 0, increases processing time dramatically)
-%         .trim         boolean, to trim or not
-%         .trim_size    how much to trim
-%         .trim_trigger how many list misses required to trigger a trim
 %         .cap          max number of informed nodes.
 %
 % Outputs
@@ -34,11 +31,6 @@ function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
 print = options.print;
 threshold = options.threshold;
 cap = options.cap;
-
-% Trimming options
-trimming = options.trimming;
-trim_size = options.trim_size;
-trim_trigger = options.trim_trigger;
 
 % Soft data options
 num_soft_nc = options.num_soft_nc;
@@ -70,13 +62,7 @@ D = cell2mat(list(:,1));
 C = cell2mat(list(:,2));
 
 %% Calculate marginal cpdf
-marginal_counts = sum(C,1);
-% total counts
-marginal_counts_tot = sum(marginal_counts);
-% probabilities
-marginal_probs = marginal_counts./marginal_counts_tot;
-% commulative probabilities
-marginal_prob_cum = cumsum(marginal_probs);
+marginal_counts = sum(C,1); % not normalized
 
 
 %% Get size of list and number of facies
@@ -120,29 +106,20 @@ countsGPU = gpuArray(int32(C));
 listLengthGPU = gpuArray(int32(listLength));
 numFaciesGPU = gpuArray(int32(numFacies));
 eventLengthGPU = gpuArray(int32(eventLength));
-%currentEventLengthGPU = gpuArray(int32(eventLength));
 
 %% Initialize arrays on GPU
 countsEventGPU = gpuArray(int32(zeros(listLength,numFacies)));
 matchesGPU = gpuArray(int32(zeros(listLength,1)));
-%sumGPU = gpuArray(int32(zeros(numFacies,1)));
-%outGPU = gpuArray(int32(zeros(listLength,1)));
-%cur_countsGPU = gpuArray(int32(zeros(numFacies,1)));
 
 %% While uninformed nodes exist
-%switch dim % Switch for 2D and 3D. TODO: Implement 1D support too.
-%    case 2 % 2D
-discards = 0;
-trim = 0;
 for i = 1:n_u
-    if i == 90
-        beep
-    end
+    %Initialize hard data vector
     d = NaN(1,template_length);
-    %% Get data event
+    
     num_informed = 0;
     
-    for h = 1:(template_length-trim)
+    %% Get data event
+    for h = 1:(template_length)
         if num_informed < cap
             try
                 switch dim
@@ -163,11 +140,9 @@ for i = 1:n_u
         else
             d(h) = NaN;
         end
-        
     end
     
     %% Get soft data event with max num_soft_nc elements
-    
     nsd = 0; %Reset number of soft data counter
     
     if num_soft_nc > 0
@@ -176,19 +151,19 @@ for i = 1:n_u
         h_soft = NaN(num_soft_nc,1);        %soft data locations
         
         %Search within template
-        for h = 1:(template_length-trim)
+        for h = 1:(template_length)
             % ...and only this many and only if node uninformed
-            if (isnan(d(h))) && (nsd < num_soft_nc)
+            if (isnan(d(h))) && (nsd <= num_soft_nc)
                 try
                     switch dim
-                    case 1
-                        sd_temp = SDG(path(i,1)+tau(h,1),:);
-                    case 2
-                        sd_temp = SDG(path(i,1)+tau(h,1),...
-                        path(i,2)+tau(h,2),:);
-                    case 3
-                        sd_temp = SDG(path(i,1)+tau(h,1),...
-                        path(i,2)+tau(h,2),path(i,3)+tau(h,3),:);
+                        case 1
+                            sd_temp = SDG(path(i,1)+tau(h,1),:);
+                        case 2
+                            sd_temp = SDG(path(i,1)+tau(h,1),...
+                                path(i,2)+tau(h,2),:);
+                        case 3
+                            sd_temp = SDG(path(i,1)+tau(h,1),...
+                                path(i,2)+tau(h,2),path(i,3)+tau(h,3),:);
                     end
                     
                     if ~isnan(sd_temp)
@@ -223,6 +198,7 @@ for i = 1:n_u
     %% If any informed nodes or softdata
     if (~isempty(find(~isnan(d),1))) || (nsd > 0)
         counts_tot = 0;
+        % Find largest possible hard data event that exists in TI
         while counts_tot < threshold
             % Search list for matches with informed nodes
             matchesGPU = feval( kernelFind, listGPU,...
@@ -267,6 +243,8 @@ for i = 1:n_u
                 %Calculate soft configuration
                 soft_config = id2n(l,num_cat,nsd);
                 
+                
+                
                 %Calculate probability of configuration from soft data
                 prob_factor = 1;
                 for m = 1:nsd
@@ -274,39 +252,54 @@ for i = 1:n_u
                         d_soft(m,soft_config(m) + 1);
                 end
                 
-                % Set data event
-                for m = 1:nsd
-                    d(h_soft(m)) = soft_config(m);
+                %Skip search of TI if data event impossible
+                if prob_factor == 0
+                    all_counts_soft(l,:) = zeros(1,num_cat);
+                else
+
+                    
+                    % Set data event
+                    for m = 1:nsd
+                        d(h_soft(m)) = soft_config(m);
+                    end
+                    
+                    % Copy dataEvent to GPU
+                    dataEventGPU = gpuArray(single(d));
+                    wait(g);
+                    
+                    % Search Pattern Library
+                    matchesGPU = feval( kernelFind, listGPU,...
+                        dataEventGPU, listLengthGPU,...
+                        eventLengthGPU, matchesGPU);
+                    wait(g);
+                    
+                    % Multiply by counts
+                    countsEventGPU = feval( kernelMultiplyArray,...
+                        matchesGPU, countsGPU,...
+                        listLengthGPU, numFaciesGPU,...
+                        countsEventGPU);
+                    
+                    % Perform summation on gpu
+                    % TODO: Reduction on GPU via kernel
+                    cur_countsGPU = sum(countsEventGPU,1);
+                    counts_soft = gather(cur_countsGPU);
+                    wait(g);
+                    
+                    %temps_counts_sum = sum(counts_soft);
+                    all_counts_soft(l,:) = counts_soft.*prob_factor;
+                    
+                    if i == 5
+                        soft_config'
+                        all_counts_soft(l,:)
+                    end
                 end
-                
-                % Copy dataEvent to GPU
-                dataEventGPU = gpuArray(single(d));
-                wait(g);
-                
-                % Search Pattern Library
-                matchesGPU = feval( kernelFind, listGPU,...
-                    dataEventGPU, listLengthGPU,...
-                    eventLengthGPU, matchesGPU);
-                wait(g);
-                
-                % Multiply by counts
-                countsEventGPU = feval( kernelMultiplyArray,...
-                    matchesGPU, countsGPU,...
-                    listLengthGPU, numFaciesGPU,...
-                    countsEventGPU);
-                
-                % Perform summation on gpu
-                % TODO: Reduction on GPU via kernel
-                cur_countsGPU = sum(countsEventGPU,1);
-                counts_soft = gather(cur_countsGPU);
-                wait(g);
-                
-                %temps_counts_sum = sum(counts_soft);
-                all_counts_soft(l,:) = counts_soft.*prob_factor;
-                
                 
                 % Retrieve hard data for next combination
                 d = d_hard;
+                                    %Testing
+
+                
+                
             end
             % Total counts for soft event
             counts = sum(all_counts_soft,1);
@@ -389,8 +382,6 @@ for i = 1:n_u
         informed = find(~isnan(d));
         
         stats.informed_final(i) = sum(~isnan(d));
-        discards = discards + stats.informed_init(i) - ...
-            stats.informed_final(i);
         
         % Save to Count grid
         for k = 1:num_cat
@@ -413,13 +404,13 @@ for i = 1:n_u
         %SG(path(i,1),path(i,2)) = cat(find(prob_cum > ...
         %    rand_pre(i),1));
         
-       
+        
     else
         %% Draw from marginal distribution
         counts = marginal_counts;
         
         %% Co-locational soft data
-        SD=NaN(num_cat);
+        SD=NaN(1,num_cat);
         
         switch dim
             case 1
@@ -454,8 +445,6 @@ for i = 1:n_u
         informed = 0;
         
         stats.informed_final(i) = 0;
-        discards = discards + stats.informed_init(i) - ...
-            stats.informed_final(i);
         
         % Save to Count grid
         for k = 1:num_cat
@@ -473,20 +462,11 @@ for i = 1:n_u
             end
         end
     end
-
+    
     if (print && ~mod(i,100))
         time_elapsed = toc;
-        fprintf(formatspec,round(time_elapsed),round(100*(i/n_u))); 
+        fprintf(formatspec,round(time_elapsed),round(100*(i/n_u)));
     end
     
     stats.time_elapsed(i) = toc;
-    stats.template_length(i) = template_length - trim;
-    
-    %% Trim function
-    if trimming && (discards > trim_trigger)
-        trim = trim + trim_size;
-        discards = 0;
-    end
 end
-
-

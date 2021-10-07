@@ -2,7 +2,7 @@ function [ SG, tauG, stats] = impala_core_gpu_soft(SG, SDG, list, path,...
     tau, rand_pre, cat, options)
 %IMPALA_CORE Function that runs and IMPALA style MPS-algorithm on GPU
 %   Implementation of IMPALA-esque MPS algorithm that searches the list
-%   using CUDA kernels on a GPU. Supports trimming and non-colocational
+%   using CUDA kernels on a GPU. Supports non-colocational
 %   soft data, as well as colocational.
 %
 % Inputs:
@@ -17,9 +17,6 @@ function [ SG, tauG, stats] = impala_core_gpu_soft(SG, SDG, list, path,...
 %         .print:       boolean; 1 shows progress, 0 no print to screen
 %         .num_soft_nc  Number nof non-colocated soft data to consider
 %                       (default 0, increases processing time dramatically)
-%         .trim         boolean, to trim or not
-%         .trim_size    how much to trim
-%         .trim_trigger how many list misses required to trigger a trim
 %         .cap          max number of informed nodes.
 %
 % Outputs
@@ -51,10 +48,6 @@ catch
     prob_factor_limit = 0;
 end
 
-% Trimming options
-trimming = options.trimming;
-trim_size = options.trim_size;
-trim_trigger = options.trim_trigger;
 
 % Soft data options
 num_soft_nc = options.num_soft_nc;
@@ -456,11 +449,6 @@ switch dim % Switch for 2D and 3D. TODO: Implement 1D support too.
             stats.time_elapsed(i) = toc;
             stats.template_length(i) = template_length - trim;
             
-            %% Trim function
-            if trimming && (discards > trim_trigger)
-                trim = trim + trim_size;
-                discards = 0;
-            end
         end
         
     case 3 %3D
@@ -694,11 +682,6 @@ switch dim % Switch for 2D and 3D. TODO: Implement 1D support too.
             stats.time_elapsed(i) = toc;
             stats.template_length(i) = template_length - trim;
             
-            %% Trim function
-            if (trimming >0) && (discards > trim_trigger)
-                trim = trim + trim_size;
-                discards = 0;
-            end
         end
         
 end

@@ -43,15 +43,15 @@ TI = TI(1:3:end,1:3:end); %scale down strebelle
 
 %% GENERAL OPTIONS
 
-num_realizations = 1000;
-%num_realizations = 5; %for testing
+%num_realizations = 1000;
+num_realizations = 2; %for testing
 print = 1;
 plots = 0;
 
 %% Save options
 make_save = 0; %save individual realizations
-save_setup = 1; %save results and setup.
-output_folder = 'soft_data_rejection_smpl';
+save_setup = 0; %save results and setup.
+output_folder = 'output';
 filename_prefix = 'sim';
 
 %% IMPALA OPTIONS
