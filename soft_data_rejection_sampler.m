@@ -1,15 +1,14 @@
 %% Soft data conditioning using extended rejection sampler
-% Requires mGstat in path, specifically 'mps_template.m' and 'channels.m' 
-% https://github.com/cultpenguin/mGstat
+% Requires mGstat in path, specifically 'mps_template.m', 'channels.m' and
+% 'id2n.m' from https://github.com/cultpenguin/mGstat
 %
 % The prior is sampled from a MPS model conditioned to some ``hard'' data,
 % while the likelihood is evaluated from the probability of those
 % realizations being compatible with the ``soft'' data.
 %
-% Then compared to an MPS Estimation that takes non-co-locational soft data
-% into account.
-%
-% TEST commit.
+% Then compared to an MPS Simulation and Estimation that takes 
+% non-co-locational soft data into account.
+
 rng(1); % Set fixed random seed;
 
 %% LOAD DATA
@@ -43,8 +42,8 @@ TI = TI(1:3:end,1:3:end); %scale down strebelle
 
 %% GENERAL OPTIONS
 
-%num_realizations = 1000;
-num_realizations = 2; %for testing
+num_realizations = 100;
+%num_realizations = 2; %for testing
 print = 1;
 plots = 0;
 
@@ -62,7 +61,7 @@ pathtype = 1;
 I_fac = 4; % Only applies to preferential path
 
 % Data template 
-template_length = 1500;
+template_length = 2000;
 template_shape = 1;
 options.print = print;
 
@@ -200,27 +199,24 @@ for i = 1:num_realizations
     
 tic;
     
-    if options.GPU
         % Simulate without conditioning to soft data (for rejection
         % sampler)
-        
+        tic;
         [SG_rejection, tauG, stats] = impala_core_gpu_soft(...
             SG_orig, NaN(size(SDG)), list, path, tau, rand_pre, cat,...
             options_rejection);
-        fprintf('Time to simulate with hard data only: %8.3f seconds', toc);
+        fprintf('Time to simulate with hard data only: %8.3f seconds\n', toc);
         
-        % Simulate *with* soft data
-%         [SG, tauG, stats] = impala_core_gpu_soft(...
-%             SG, SDG, list, path, tau, rand_pre, cat, options);
-    else
-        [SG, tauG, stats] = impala_core(...
-            SG, SDG, list, path, tau, rand_pre, cat, options);
-    end
+        tic;
+        %Simulate *with* soft data
+         [SG, tauG, stats] = impala_core_gpu_soft(...
+             SG, SDG, list, path, tau, rand_pre, cat, options);
+         fprintf('Time to simulate with hard and soft data: %8.3f seconds\n', toc);
     
     time_elapsed = toc;
-    if print
-        fprintf('Time to generate realization number %i: %8.3f seconds.\n', i, time_elapsed);
-    end
+%     if print
+%         fprintf('Time to generate realization number %i: %8.3f seconds.\n', i, time_elapsed);
+%     end
     if plots
         imagesc(SG);
         drawnow;
@@ -247,6 +243,7 @@ tic;
     % Save regardless of rejection sampler
 %     SG_tot = SG_tot + SG; %with soft data
     SG_tot_rejection = SG_tot_rejection + SG_rejection; %without soft data
+    SG_tot = SG_tot + SG; %with soft data
     last_i = i;
     %SG = NaN(size(SG)); 
     SG = SG_orig; 
@@ -264,7 +261,7 @@ SG_rejection_sampler_tot = SG_rejection_sampler./num_accept;
 
 
 %% Estimation
-template_length = 1500;
+template_length = 2000;
 template_shape = 1;
 
 %Template
@@ -286,7 +283,7 @@ rand_pre = rand(n_u,1);
 options_est.num_soft_nc = 3;
 
 [CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
-    tau, rand_pre, cat, options_est);
+    tau, cat, options_est);
 
 %%
 
