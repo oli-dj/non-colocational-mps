@@ -11,7 +11,6 @@ function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
 %  list:                IMPALA list (c and d vectors)
 %  path:                pre-calculated path (random or otherwise)
 %  tau:                 data template
-%  rand_pre:            pre-calculated random numbers (not needed for est.)
 %  cat:                 categories
 %  options.threshold:   minimum count in list, else use marginal cpdf.
 %         .print:       boolean; 1 shows progress, 0 no print to screen
@@ -287,19 +286,10 @@ for i = 1:n_u
                     
                     %temps_counts_sum = sum(counts_soft);
                     all_counts_soft(l,:) = counts_soft.*prob_factor;
-                    
-                    if i == 5
-                        soft_config'
-                        all_counts_soft(l,:)
-                    end
                 end
                 
                 % Retrieve hard data for next combination
-                d = d_hard;
-                                    %Testing
-
-                
-                
+                d = d_hard;   
             end
             % Total counts for soft event
             counts = sum(all_counts_soft,1);
@@ -309,7 +299,6 @@ for i = 1:n_u
             
             % Normalize counts
             counts = counts./counts_tot;
-            
         end
         
         
@@ -373,11 +362,7 @@ for i = 1:n_u
             end
         end
         counts_tot = sum(counts);
-        
-        % commulative probabilities (for simulation only)
-        %probs = counts./counts_tot;
-        %prob_cum = cumsum(probs);
-        
+              
         % Record data event length
         informed = find(~isnan(d));
         
@@ -398,12 +383,6 @@ for i = 1:n_u
                     tauG(path(i,1),path(i,2),path(i,3)) = length(informed);
             end
         end
-        
-        % SIMULATION
-        % draw a value and assign
-        %SG(path(i,1),path(i,2)) = cat(find(prob_cum > ...
-        %    rand_pre(i),1));
-        
         
     else
         %% Draw from marginal distribution
@@ -437,10 +416,7 @@ for i = 1:n_u
         end
         counts_tot = sum(counts);
         
-        % commulative probabilities (for simulation only)
-        %probs = counts./counts_tot;
-        %prob_cum = cumsum(probs);
-        
+    
         % Set data event to zero as marginal distribution is used.
         informed = 0;
         
