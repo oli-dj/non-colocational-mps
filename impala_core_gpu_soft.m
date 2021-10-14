@@ -401,6 +401,7 @@ for i = 1:n_u
         
     else
         %% Draw from marginal distribution
+        informed = find(~isnan(d));
         counts = marginal_counts;
         
         %% Co-locational soft data
