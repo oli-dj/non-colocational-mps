@@ -17,6 +17,10 @@ function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
 %         .num_soft_nc  Number nof non-colocated soft data to consider
 %                       (default 0, increases processing time dramatically)
 %         .cap          max number of informed nodes.
+%         .add_entropy  add entropy to distant soft data
+%         .temp_thresh  threshold distance to begin to add entropy
+%         .temp_grad    gradient of temperature increase
+%
 %
 % Outputs
 %  CG:                  Estimation grid
@@ -30,6 +34,13 @@ function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
 print = options.print;
 threshold = options.threshold;
 cap = options.cap;
+try
+    add_entropy = options.add_entropy;
+    temp_thresh = options.temperature_threshold;
+    temp_grad = options.temperature_gradient;
+catch
+    add_entropy = 0;
+end
 
 % Soft data options
 num_soft_nc = options.num_soft_nc;
@@ -179,13 +190,30 @@ for i = 1:n_u
                 end
             end
         end
-        %Prune soft data event
+        % Prune soft data event
         if nsd < num_soft_nc
             d_soft = d_soft(1:nsd,:);
             h_soft = h_soft(1:nsd,:);
         end
+
+        % Add entropy relative to distance
+        if add_entropy == 1
+            for h = 1:nsd
+
+                % Calculate absolute distance from central node
+                abs_dist = sqrt(h_soft(h,:).^2);
+                % If further away than the threshold
+                if abs_dist > threshold
+                    temperature = 1 + temp_grad * ...
+                        (abs_dist - temp_thresh);
+                    d_soft_temp = d_soft(h,:).^(1/temperature);
+                    d_soft_temp = d_soft_temp./sum(d_soft_temp);
+                    d_soft(h,:) = d_soft_temp;
+                end
+            end
+        end
     end
-    
+
     % Record the initial number of informed nodes and soft nodes
     stats.informed_init(i) = sum(~isnan(d));
     stats.nsd(i) = nsd;
