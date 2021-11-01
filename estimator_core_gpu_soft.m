@@ -203,7 +203,7 @@ for i = 1:n_u
                 % Calculate absolute distance from central node
                 abs_dist = sqrt(sum(h_soft(h,:).^2));
                 % If further away than the threshold
-                if abs_dist > threshold
+                if abs_dist > temp_thresh
                     temperature = 1 + temp_grad * ...
                         (abs_dist - temp_thresh);
                     d_soft_temp = d_soft(h,:).^(1/temperature);
