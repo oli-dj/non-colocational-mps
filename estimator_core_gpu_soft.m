@@ -36,8 +36,8 @@ threshold = options.threshold;
 cap = options.cap;
 try
     add_entropy = options.add_entropy;
-    temp_thresh = options.temperature_threshold;
-    temp_grad = options.temperature_gradient;
+    temp_thresh = options.temp_thresh;
+    temp_grad = options.temp_grad;
 catch
     add_entropy = 0;
 end
