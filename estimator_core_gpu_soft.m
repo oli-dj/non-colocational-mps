@@ -230,8 +230,7 @@ for i = 1:n_u
             % Search list for matches with informed nodes
             matchesGPU = feval( kernelFind, listGPU,...
                 dataEventGPU, listLengthGPU,...
-                eventLengthGPU,...%currentEventLengthGPU,
-                matchesGPU);
+                eventLengthGPU, matchesGPU);
             wait(g);
             
             % Multiply by counts
@@ -269,8 +268,6 @@ for i = 1:n_u
             for l=1:num_combinations
                 %Calculate soft configuration
                 soft_config = id2n(l,num_cat,nsd);
-                
-                
                 
                 %Calculate probability of configuration from soft data
                 prob_factor = 1;
@@ -356,6 +353,8 @@ for i = 1:n_u
                     counts = counts.*SD;
                 end
         end
+        
+        % Total counts
         counts_tot = sum(counts);
         
         % If the co-locational soft data is incompatible with

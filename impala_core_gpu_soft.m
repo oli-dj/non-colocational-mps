@@ -18,6 +18,9 @@ function [ SG, tauG, stats] = impala_core_gpu_soft(SG, SDG, list, path,...
 %         .num_soft_nc  Number nof non-colocated soft data to consider
 %                       (default 0, increases processing time dramatically)
 %         .cap          max number of informed nodes.
+%         .add_entropy  add entropy to distant soft data
+%         .temp_thresh  threshold distance to begin to add entropy
+%         .temp_grad    gradient of temperature increase
 %
 % Outputs
 %  SG:                  Simlation grid
@@ -31,6 +34,13 @@ function [ SG, tauG, stats] = impala_core_gpu_soft(SG, SDG, list, path,...
 print = options.print;
 threshold = options.threshold;
 cap = options.cap;
+try
+    add_entropy = options.add_entropy;
+    temp_thresh = options.temp_thresh;
+    temp_grad = options.temp_grad;
+catch
+    add_entropy = 0;
+end
 
 % Soft data options
 num_soft_nc = options.num_soft_nc;
@@ -184,6 +194,23 @@ for i = 1:n_u
             d_soft = d_soft(1:nsd,:);
             h_soft = h_soft(1:nsd,:);
         end
+        
+        % Add entropy relative to distance
+        if add_entropy == 1
+            for h = 1:nsd
+                
+                % Calculate absolute distance from central node
+                abs_dist = sqrt(sum(tau(h_soft(h,:),:).^2));
+                % If further away than the threshold
+                if abs_dist > temp_thresh
+                    temperature = 1 + temp_grad * ...
+                        (abs_dist - temp_thresh);
+                    d_soft_temp = d_soft(h,:).^(1/temperature);
+                    d_soft_temp = d_soft_temp./sum(d_soft_temp);
+                    d_soft(h,:) = d_soft_temp;
+                end
+            end
+        end
     end
     
     % Record the initial number of informed nodes and soft nodes
@@ -197,6 +224,7 @@ for i = 1:n_u
     %% If any informed nodes or softdata
     if ((~isempty(find(~isnan(d),1))) || (nsd > 0))
         counts_tot = 0;
+        % Find largest possible hard data event that exists in TI
         while counts_tot < threshold
             % Search list for matches with informed nodes
             matchesGPU = feval( kernelFind, listGPU,...
@@ -239,8 +267,6 @@ for i = 1:n_u
             for l=1:num_combinations
                 %Calculate soft configuration
                 soft_config = id2n(l,num_cat,nsd);
-                
-                
                 
                 %Calculate probability of configuration from soft data
                 prob_factor = 1;
@@ -456,7 +482,7 @@ for i = 1:n_u
                     length(informed);
         end
     end
-    if (print && ~mod(100.*i./n_u,5))
+    if (print && ~mod(i,100))
         time_elapsed = toc;
         fprintf(formatspec,round(time_elapsed),round(100*(i/n_u)));
     end
@@ -465,4 +491,3 @@ for i = 1:n_u
     stats.template_length(i) = template_length;
     
 end
-
