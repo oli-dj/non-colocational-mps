@@ -18,8 +18,12 @@ function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
 %                       (default 0, increases processing time dramatically)
 %         .cap          max number of informed nodes.
 %         .add_entropy  add entropy to distant soft data
+%            **use**
 %         .temp_thresh  threshold distance to begin to add entropy
 %         .temp_grad    gradient of temperature increase
+%            **or**
+%         .temp_dists   start and limit distance to add temp. linearly
+%         .temp_limit   temperature at end distance
 %
 %
 % Outputs
@@ -34,12 +38,23 @@ function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
 print = options.print;
 threshold = options.threshold;
 cap = options.cap;
-try
+
+%% Add entropy options
+try 
     add_entropy = options.add_entropy;
-    temp_thresh = options.temp_thresh;
-    temp_grad = options.temp_grad;
 catch
     add_entropy = 0;
+end
+if add_entropy == 1
+    try %check if threshold and gradient is provided
+        temp_thresh = options.temp_thresh;
+        temp_grad = options.temp_grad;
+    catch %else calculate them from limits
+        temp_dists = options.temp_dists;
+        temp_limit = options.temp_limit;
+        temp_thresh = temp_dists(1);
+        temp_grad = (temp_limit-1)./(temp_dists(2)-temp_dists(1));
+    end
 end
 
 % Soft data options
