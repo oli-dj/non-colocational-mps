@@ -177,7 +177,7 @@ for i = 1:n_u
         %Search within template
         for h = 1:(template_length)
             % ...and only this many and only if node uninformed
-            if (isnan(d(h))) && (nsd <= num_soft_nc)
+            if (isnan(d(h))) && (nsd < num_soft_nc)
                 try
                     switch dim
                         case 1
