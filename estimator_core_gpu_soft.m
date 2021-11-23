@@ -24,6 +24,7 @@ function [ CG, tauG, stats] = estimator_core_gpu_soft(SG, SDG, list, path,...
 %            **or**
 %         .temp_dists   start and limit distance to add temp. linearly
 %         .temp_limit   temperature at end distance
+%         .temp_func    1 for linear, otherwise logarithmic
 %
 %
 % Outputs
@@ -54,6 +55,11 @@ if add_entropy == 1
         temp_limit = options.temp_limit;
         temp_thresh = temp_dists(1);
         temp_grad = (temp_limit-1)./(temp_dists(2)-temp_dists(1));
+        try 
+            temp_func = options.temp_func;
+        catch
+            temp_func = 0;
+        end
     end
 end
 
@@ -217,10 +223,20 @@ for i = 1:n_u
 
                 % Calculate absolute distance from central node
                 abs_dist = sqrt(sum(tau(h_soft(h,:),:).^2));
+                
                 % If further away than the threshold
                 if abs_dist > temp_thresh
-                    temperature = 1 + temp_grad * ...
-                        (abs_dist - temp_thresh);
+                    % Linear temperature function
+                    if temp_func == 1
+                        temperature = 1 + temp_grad * ...
+                            (abs_dist - temp_thresh);
+                    else % Logarithmic temperature function
+                        temperature = 1 + (temp_limit-1) * ...
+                            log10(10*(1 + abs_dist - temp_thresh)./...
+                            (temp_dists(2) - temp_dists(1)));
+                    end
+                    
+                    % Add entropy according to calculated temperature
                     d_soft_temp = d_soft(h,:).^(1/temperature);
                     d_soft_temp = d_soft_temp./sum(d_soft_temp);
                     d_soft(h,:) = d_soft_temp;
