@@ -232,7 +232,7 @@ for i = 1:n_u
                             (abs_dist - temp_thresh);
                     else % Logarithmic temperature function
                         temperature = 10.^((abs_dist - temp_thresh)...
-                            ./10.*log10(temp_limit));
+                            ./(temp_dists(2)-temp_dists(1)).*log10(temp_limit));
                     end
                     
                     % Add entropy according to calculated temperature
